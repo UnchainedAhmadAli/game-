@@ -93,11 +93,18 @@ S_BOX = [
 ]
 
 
-def hex_to_bin(h):
+def text_to_bin(text):
     b = ""
-    for c in h:
-        b += bin(int(c, 16))[2:].zfill(4)
+    for ch in text:
+        b += bin(ord(ch))[2:].zfill(8)
     return b
+
+
+def bin_to_text(b):
+    text = ""
+    for i in range(0, len(b), 8):
+        text += chr(int(b[i:i + 8], 2))
+    return text
 
 
 def bin_to_hex(b):
@@ -129,7 +136,7 @@ def xor(a, b):
 
 
 def generate_keys(key):
-    key = hex_to_bin(key)
+    key = text_to_bin(key)
     key = permute(key, PC1)
     left = key[:28]
     right = key[28:]
@@ -153,35 +160,46 @@ def f(right, key):
     return permute(output, P)
 
 
-def des(text, keys):
-    text = hex_to_bin(text)
-    text = permute(text, IP)
-    left = text[:32]
-    right = text[32:]
+def des_block(block, keys):
+    block = permute(block, IP)
+    left = block[:32]
+    right = block[32:]
     for i in range(16):
         temp = right
         right = xor(left, f(right, keys[i]))
         left = temp
-    result = permute(right + left, FP)
-    return bin_to_hex(result)
+    return permute(right + left, FP)
 
 
-def encrypt(plain, key):
+def encrypt(msg, key):
     keys = generate_keys(key)
-    return des(plain, keys)
+    while len(msg) % 8 != 0:
+        msg += " "
+    bits = text_to_bin(msg)
+    cipher = ""
+    for i in range(0, len(bits), 64):
+        cipher += des_block(bits[i:i + 64], keys)
+    return cipher
 
 
 def decrypt(cipher, key):
     keys = generate_keys(key)
     keys.reverse()
-    return des(cipher, keys)
+    plain = ""
+    for i in range(0, len(cipher), 64):
+        plain += des_block(cipher[i:i + 64], keys)
+    return bin_to_text(plain).rstrip()
 
 
-plain = input("Enter plaintext (16 hex digits): ").upper()
-key = input("Enter key (16 hex digits): ").upper()
+msg = input("Enter message: ")
+key = input("Enter key (8 characters): ")
 
-cipher = encrypt(plain, key)
-print("Cipher text:", cipher)
+while len(key) != 8:
+    print("Key must be exactly 8 characters!")
+    key = input("Enter key (8 characters): ")
 
-back = decrypt(cipher, key)
-print("Decrypted text:", back)
+cipher = encrypt(msg, key)
+print("Encrypted (hex):", bin_to_hex(cipher))
+
+plain = decrypt(cipher, key)
+print("Decrypted message:", plain)
